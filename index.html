@@ -43,11 +43,11 @@
     <form id="calcForm">
       <div class="grid">
         <div>
-          <label for="initial">Initial portfolio amount</label>
+          <label for="initial">Initial portfolio amount *</label>
           <input id="initial" name="initial" type="number" inputmode="decimal" step="0.01" min="0" value="0" required />
         </div>
         <div>
-          <label for="ror">Yearly expected rate of return (%)</label>
+          <label for="ror">Yearly expected rate of return (%) *</label>
           <input id="ror" name="ror" type="number" inputmode="decimal" step="0.01" value="7" required />
         </div>
         <div>
@@ -99,22 +99,24 @@
   }
 
   function simulate(P0, r, S, N){
-    // Returns array of {year, amount}
-    const rows = [{year:0, amount:P0}];
+    // Returns array of {year, amount, returns}
+    const rows = [{year:0, amount:P0, returns:0}];
     let A = P0;
     for(let k=1;k<=N;k++){
+      const ret = A * r; // nominal return for the year, excluding new savings
       A = A * (1 + r) + S; // end-of-year contribution
-      rows.push({year:k, amount:A});
+      rows.push({year:k, amount:A, returns:ret});
     }
     return rows;
   }
 
   function yearsToTarget(P0, r, S, target, cap=10000){
-    if (target <= P0) return {years:0, rows:[{year:0, amount:P0}]};
-    let A = P0, rows=[{year:0, amount:P0}], y=0;
+    if (target <= P0) return {years:0, rows:[{year:0, amount:P0, returns:0}]};
+    let A = P0, rows=[{year:0, amount:P0, returns:0}], y=0;
     for(y=1; y<=cap; y++){
+      const ret = A * r;
       A = A * (1 + r) + S;
-      rows.push({year:y, amount:A});
+      rows.push({year:y, amount:A, returns:ret});
       if (A >= target) return {years:y, rows};
     }
     return {years:null, rows};
@@ -122,8 +124,8 @@
 
   function renderTable(rows){
     if (!rows || rows.length===0){ tableWrap.innerHTML=''; return; }
-    let html = '<table><thead><tr><th>Year</th><th>Portfolio</th></tr></thead><tbody>';
-    html += rows.map(r=>`<tr><td>${r.year}</td><td>${fmt(r.amount)}</td></tr>`).join('');
+    let html = '<table><thead><tr><th>Year</th><th>Portfolio</th><th>Investment Returns since last year</th></tr></thead><tbody>';
+    html += rows.map(r=>`<tr><td>${r.year}</td><td>${fmt(r.amount)}</td><td>${fmt(r.returns)}</td></tr>`).join('');
     html += '</tbody></table>';
     tableWrap.innerHTML = html;
   }
