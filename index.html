@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Savings Goal Calculator</title>
+  <style>
+    :root{
+      --bg:#0b0c10; --card:#121319; --muted:#9aa0a6; --text:#e8eaed; --accent:#4caf50; --danger:#e53935; --warn:#ffb300;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text)}
+    .wrap{max-width:900px; margin:40px auto; padding:0 16px}
+    h1{font-weight:700; font-size:clamp(22px,3.5vw,32px); margin:0 0 16px}
+    p.sub{color:var(--muted); margin:0 0 24px}
+    form{background:var(--card); border:1px solid #20222b; border-radius:16px; padding:20px}
+    .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px}
+    @media (max-width:720px){.grid{grid-template-columns:1fr}}
+    label{display:block; font-size:12px; color:var(--muted); margin:0 0 6px}
+    input[type=number]{width:100%; padding:12px 12px; border:1px solid #2a2d35; border-radius:12px; background:#0f1016; color:var(--text)}
+    input[type=number]:focus{outline:2px solid #2e7d32; border-color:#2e7d32}
+    .row{display:flex; gap:12px; align-items:center}
+    .hint{font-size:12px; color:var(--muted)}
+    .btnbar{display:flex; gap:12px; margin-top:16px}
+    button{appearance:none; border:0; border-radius:12px; padding:12px 16px; cursor:pointer; font-weight:600}
+    .primary{background:var(--accent); color:#06280b}
+    .ghost{background:transparent; color:var(--text); border:1px solid #384452}
+    .note{margin-top:10px; font-size:13px}
+    .note.error{color:var(--danger)}
+    .note.warn{color:var(--warn)}
+    table{width:100%; border-collapse:collapse; margin-top:18px; background:var(--card); border:1px solid #20222b; border-radius:12px; overflow:hidden}
+    th,td{padding:10px 12px; text-align:right; border-bottom:1px solid #20222b}
+    th:first-child, td:first-child{text-align:left}
+    tr:last-child td{border-bottom:0}
+    .computed{outline:3px solid var(--accent);}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Savings Goal Calculator</h1>
+    <p class="sub">Provide the first two fields. Leave <strong>exactly one</strong> of the last three blank. On submit, the blank field is computed. Table shows year-by-year portfolio with annual compounding and contributions at year end.</p>
+
+    <form id="calcForm">
+      <div class="grid">
+        <div>
+          <label for="initial">Initial portfolio amount</label>
+          <input id="initial" name="initial" type="number" inputmode="decimal" step="0.01" min="0" value="0" required />
+        </div>
+        <div>
+          <label for="ror">Yearly expected rate of return (%)</label>
+          <input id="ror" name="ror" type="number" inputmode="decimal" step="0.01" value="7" required />
+        </div>
+        <div>
+          <label for="years">Years to save</label>
+          <input id="years" name="years" type="number" inputmode="numeric" step="1" min="0" />
+        </div>
+        <div>
+          <label for="yearly">Yearly saved amount</label>
+          <input id="yearly" name="yearly" type="number" inputmode="decimal" step="0.01" />
+        </div>
+        <div>
+          <label for="objective">Financial objective (target)</label>
+          <input id="objective" name="objective" type="number" inputmode="decimal" step="0.01" />
+        </div>
+      </div>
+      <div class="btnbar">
+        <button type="submit" class="primary">Submit</button>
+        <button type="button" class="ghost" id="resetBtn">Reset</button>
+      </div>
+      <div id="note" class="note"></div>
+    </form>
+
+    <div id="tableWrap"></div>
+  </div>
+
+<script>
+(function(){
+  const el = id => document.getElementById(id);
+  const fmt = n => {
+    if (!isFinite(n)) return "";
+    return new Intl.NumberFormat(undefined,{maximumFractionDigits:2, minimumFractionDigits:2}).format(n);
+  };
+
+  const form = el('calcForm');
+  const note = el('note');
+  const tableWrap = el('tableWrap');
+  const inputs = {
+    initial: el('initial'),
+    ror: el('ror'),
+    years: el('years'),
+    yearly: el('yearly'),
+    objective: el('objective')
+  };
+
+  function clearComputedOutline(){
+    inputs.years.classList.remove('computed');
+    inputs.yearly.classList.remove('computed');
+    inputs.objective.classList.remove('computed');
+  }
+
+  function simulate(P0, r, S, N){
+    // Returns array of {year, amount}
+    const rows = [{year:0, amount:P0}];
+    let A = P0;
+    for(let k=1;k<=N;k++){
+      A = A * (1 + r) + S; // end-of-year contribution
+      rows.push({year:k, amount:A});
+    }
+    return rows;
+  }
+
+  function yearsToTarget(P0, r, S, target, cap=10000){
+    if (target <= P0) return {years:0, rows:[{year:0, amount:P0}]};
+    let A = P0, rows=[{year:0, amount:P0}], y=0;
+    for(y=1; y<=cap; y++){
+      A = A * (1 + r) + S;
+      rows.push({year:y, amount:A});
+      if (A >= target) return {years:y, rows};
+    }
+    return {years:null, rows};
+  }
+
+  function renderTable(rows){
+    if (!rows || rows.length===0){ tableWrap.innerHTML=''; return; }
+    let html = '<table><thead><tr><th>Year</th><th>Portfolio</th></tr></thead><tbody>';
+    html += rows.map(r=>`<tr><td>${r.year}</td><td>${fmt(r.amount)}</td></tr>`).join('');
+    html += '</tbody></table>';
+    tableWrap.innerHTML = html;
+  }
+
+  function setNote(text, cls){
+    note.className = 'note' + (cls? ' ' + cls : '');
+    note.textContent = text || '';
+  }
+
+  function parseNumber(v){
+    if (v === '' || v === null || v === undefined) return null;
+    const n = Number(v);
+    return isNaN(n) ? null : n;
+  }
+
+  el('resetBtn').addEventListener('click', ()=>{
+    form.reset();
+    inputs.initial.value = '0';
+    inputs.ror.value = '7';
+    clearComputedOutline();
+    setNote('','');
+    tableWrap.innerHTML='';
+  });
+
+  form.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    clearComputedOutline();
+    setNote('', '');
+
+    const P0 = parseNumber(inputs.initial.value);
+    const rPct = parseNumber(inputs.ror.value);
+
+    if (P0 === null || rPct === null){
+      setNote('Initial amount and expected return are required.', 'error');
+      return;
+    }
+    const r = rPct / 100;
+    if (r <= -1){
+      setNote('Rate must be greater than -100%.', 'error');
+      return;
+    }
+
+    const N_in = parseNumber(inputs.years.value);
+    const S_in = parseNumber(inputs.yearly.value);
+    const F_in = parseNumber(inputs.objective.value);
+
+    const trio = [N_in, S_in, F_in];
+    const emptyCount = trio.filter(v => v === null).length;
+    if (emptyCount !== 1){
+      setNote('Leave exactly one of: Years, Yearly saved, or Objective blank.', 'error');
+      tableWrap.innerHTML='';
+      return;
+    }
+
+    // Compute the missing one
+    let N = N_in, S = S_in, F = F_in, rows = null;
+
+    // Case A: Objective missing
+    if (F === null){
+      if (N === null || S === null){
+        setNote('Provide Years and Yearly saved to compute Objective.', 'error');
+        return;
+      }
+      if (N < 0){ setNote('Years cannot be negative.', 'error'); return; }
+      rows = simulate(P0, r, S, Math.floor(N));
+      F = rows[rows.length-1].amount;
+      inputs.objective.value = F.toFixed(2);
+      inputs.objective.classList.add('computed');
+      renderTable(rows);
+      if (S < 0) setNote('Computed with negative yearly savings. Verify inputs.', 'warn');
+      return;
+    }
+
+    // Case B: Years missing
+    if (N === null){
+      if (S === null){ setNote('Provide Yearly saved to compute Years.', 'error'); return; }
+      if (F <= 0 && P0 <= 0 && S <= 0 && r <= 0){
+        setNote('Unreachable target with non-positive values.', 'error');
+        return;
+      }
+      const res = yearsToTarget(P0, r, S, F);
+      if (res.years === null){
+        setNote('Target not reached within 10,000 years. Adjust inputs.', 'error');
+        tableWrap.innerHTML='';
+        return;
+      }
+      N = res.years;
+      inputs.years.value = String(N);
+      inputs.years.classList.add('computed');
+      rows = res.rows;
+      renderTable(rows);
+      if (S < 0) setNote('Computed years given negative yearly savings. Verify inputs.', 'warn');
+      return;
+    }
+
+    // Case C: Yearly saved missing
+    if (S === null){
+      if (N < 0){ setNote('Years cannot be negative.', 'error'); return; }
+      // Solve S from closed-form. Handle r==0 separately.
+      const n = Math.floor(N);
+      const g = (1 + r) ** n;
+      if (n === 0){
+        if (F !== P0){
+          setNote('With 0 years, target must equal initial. Increase years to save.', 'error');
+          tableWrap.innerHTML='';
+          return;
+        }
+        S = 0; // trivial
+      } else if (r === 0){
+        S = (F - P0) / n;
+      } else {
+        const denom = (g - 1) / r;
+        S = (F - P0 * g) / denom;
+      }
+      inputs.yearly.value = Number.isFinite(S) ? S.toFixed(2) : '';
+      inputs.yearly.classList.add('computed');
+      rows = simulate(P0, r, S, n);
+      renderTable(rows);
+      if (S < 0) setNote('Computed negative yearly savings to meet target. Verify feasibility.', 'warn');
+      return;
+    }
+  });
+})();
+</script>
+</body>
+</html>
