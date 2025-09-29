@@ -10,8 +10,8 @@ form{background:var(--card); border:1px solid #20222b; border-radius:16px; paddi
 .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px}
 @media (max-width:720px){.grid{grid-template-columns:1fr}}
 label{display:block; font-size:12px; color:var(--muted); margin:0 0 6px}
-input[type=number]{width:100%; padding:12px 12px; border:1px solid #2a2d35; border-radius:12px; background:#0f1016; color:var(--text)}
-input[type=number]:focus{outline:2px solid #2e7d32; border-color:#2e7d32}
+input[type=number], input[type=text]{width:100%; padding:12px 12px; border:1px solid #2a2d35; border-radius:12px; background:#0f1016; color:var(--text)}
+input[type=number]:focus, input[type=text]:focus{outline:2px solid #2e7d32; border-color:#2e7d32}
 .row{display:flex; gap:12px; align-items:center}
 .hint{font-size:12px; color:var(--muted)}
 .btnbar{display:flex; gap:12px; margin-top:16px}

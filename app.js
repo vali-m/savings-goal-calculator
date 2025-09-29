@@ -1,8 +1,9 @@
 (function(){
   const el = id => document.getElementById(id);
+  const usdFmt = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2, minimumFractionDigits:2});
   const fmt = n => {
     if (!isFinite(n)) return "";
-    return new Intl.NumberFormat(undefined,{maximumFractionDigits:2, minimumFractionDigits:2}).format(n);
+    return usdFmt.format(n);
   };
 
   const form = el('calcForm');
@@ -15,6 +16,26 @@
     yearly: el('yearly'),
     objective: el('objective')
   };
+
+  const currencyInputs = [inputs.initial, inputs.yearly, inputs.objective];
+
+  function formatCurrencyInput(inputEl){
+    const n = parseNumber(inputEl.value);
+    inputEl.value = n === null ? '' : fmt(n);
+  }
+
+  function unformatCurrencyInput(inputEl){
+    const n = parseNumber(inputEl.value);
+    inputEl.value = n === null ? '' : String(n);
+  }
+
+  currencyInputs.forEach(inp=>{
+    inp.addEventListener('focus', ()=>unformatCurrencyInput(inp));
+    inp.addEventListener('blur', ()=>formatCurrencyInput(inp));
+  });
+
+  // Format defaults on load
+  formatCurrencyInput(inputs.initial);
 
   function clearComputedOutline(){
     inputs.years.classList.remove('computed');
@@ -61,6 +82,7 @@
 
   function parseNumber(v){
     if (v === '' || v === null || v === undefined) return null;
+    if (typeof v === 'string') v = v.replace(/[^0-9.\-]/g, '');
     const n = Number(v);
     return isNaN(n) ? null : n;
   }
@@ -72,6 +94,7 @@
     clearComputedOutline();
     setNote('','');
     tableWrap.innerHTML='';
+    formatCurrencyInput(inputs.initial);
   });
 
   form.addEventListener('submit', (e)=>{
@@ -116,7 +139,7 @@
       if (N < 0){ setNote('Years cannot be negative.', 'error'); return; }
       rows = simulate(P0, r, S, Math.floor(N));
       F = rows[rows.length-1].amount;
-      inputs.objective.value = F.toFixed(2);
+      inputs.objective.value = fmt(F);
       inputs.objective.classList.add('computed');
       renderTable(rows);
       if (S < 0) setNote('Computed with negative yearly savings. Verify inputs.', 'warn');
@@ -164,7 +187,7 @@
         const denom = (g - 1) / r;
         S = (F - P0 * g) / denom;
       }
-      inputs.yearly.value = Number.isFinite(S) ? S.toFixed(2) : '';
+      inputs.yearly.value = Number.isFinite(S) ? fmt(S) : '';
       inputs.yearly.classList.add('computed');
       rows = simulate(P0, r, S, n);
       renderTable(rows);
